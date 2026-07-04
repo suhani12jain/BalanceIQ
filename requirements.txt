@@ -1,0 +1,25 @@
+# FinSum - Financial Statement Analysis for Laymen
+# Core dependencies
+
+# Web UI
+streamlit>=1.32.0
+
+# LangChain & OpenAI
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langchain-community>=0.3.0
+openai>=1.40.0
+
+# Vector store
+chromadb>=0.5.0
+langchain-chroma>=0.2.0
+
+# PDF parsing
+PyMuPDF>=1.24.0
+
+# Data handling & visualization
+pandas>=2.2.0
+matplotlib>=3.8.0
+
+# Environment variables
+python-dotenv>=1.0.0

@@ -1,0 +1,31 @@
+# Environment
+.env
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Data (keep structure, ignore generated files)
+data/uploads/*
+!data/uploads/.gitkeep
+data/chroma_db/*
+!data/chroma_db/.gitkeep
+data/extracted/*
+!data/extracted/.gitkeep
+data/cache/*
+!data/cache/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
