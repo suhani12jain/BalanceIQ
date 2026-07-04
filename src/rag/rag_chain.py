@@ -1,14 +1,14 @@
 """
-Steps 14–15 — Prompt Building & GPT Answer Generation.
+Steps 14–15 — Prompt Building & Gemini Answer Generation.
 
-Builds the final prompt (system + context + question) and calls OpenAI.
+Builds the final prompt (system + context + question) and calls gemini-2.5-flash.
 Answers only from provided context to reduce hallucination.
 """
 
 
 def get_system_prompt() -> str:
     """
-    Return the system prompt for GPT.
+    Return the system prompt for Gemini.
 
     Instructs the model to:
         - Act as a financial analyst for laymen
@@ -48,13 +48,13 @@ def build_rag_chain(retriever):
     Returns:
         Runnable chain.
     """
-    # TODO: ChatOpenAI + prompt template + retriever chain
+    # TODO: ChatGoogleGenerativeAI (gemini-2.5-flash) + prompt template + retriever chain
     pass
 
 
 def answer_question(context: str, question: str) -> str:
     """
-    Generate a plain-language answer using context and GPT (Step 15).
+    Generate a plain-language answer using context and Gemini (Step 15).
 
     Args:
         context: Merged context from context_builder.

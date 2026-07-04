@@ -14,18 +14,23 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-# --- OpenAI settings ---
-OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-OPENAI_EMBEDDING_MODEL: str = os.getenv(
-    "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
+# --- Google Gemini settings ---
+GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+
+# Chat model — answers user questions (RAG Step 15)
+GEMINI_CHAT_MODEL: str = os.getenv("GEMINI_CHAT_MODEL", "gemini-2.5-flash")
+
+# Embedding model — converts chunks to vectors (RAG Step 5)
+# gemini-2.5-flash is NOT used for embeddings; this is a dedicated embedding model
+GEMINI_EMBEDDING_MODEL: str = os.getenv(
+    "GEMINI_EMBEDDING_MODEL", "models/text-embedding-004"
 )
-OPENAI_CHAT_MODEL: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 
 # --- Data paths ---
 UPLOADS_DIR: Path = PROJECT_ROOT / "data" / "uploads"
-CHROMA_DIR: Path = PROJECT_ROOT / "data" / "chroma_db"  # ChromaDB persist path (Step 6)
-EXTRACTED_DIR: Path = PROJECT_ROOT / "data" / "extracted"   # pandas CSV/JSON (Step 7)
-CACHE_DIR: Path = PROJECT_ROOT / "data" / "cache"           # external news cache (Step 8)
+CHROMA_DIR: Path = PROJECT_ROOT / "data" / "chroma_db"
+EXTRACTED_DIR: Path = PROJECT_ROOT / "data" / "extracted"
+CACHE_DIR: Path = PROJECT_ROOT / "data" / "cache"
 
 # --- RAG hyperparameters ---
 CHUNK_SIZE: int = 1000
@@ -35,10 +40,13 @@ TOP_K_RETRIEVAL: int = 4
 
 def validate_config() -> bool:
     """
-    Check that required configuration (e.g. API key) is present.
+    Check that required configuration (Google API key) is present.
 
     Returns:
         True if configuration is valid, False otherwise.
     """
-    # TODO: Implement validation logic
-    pass
+    if not GOOGLE_API_KEY or not GOOGLE_API_KEY.strip():
+        return False
+    if GOOGLE_API_KEY.strip() == "your_google_api_key_here":
+        return False
+    return True

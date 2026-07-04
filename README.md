@@ -8,8 +8,8 @@ A Retrieval-Augmented Generation (RAG) application that helps non-experts unders
 | ----- | ---------- |
 | Frontend | Streamlit |
 | Orchestration | LangChain |
-| LLM | OpenAI API (GPT) |
-| Embeddings | OpenAI `text-embedding-3-small` |
+| LLM | Google Gemini (`gemini-2.5-flash`) |
+| Embeddings | Google `models/text-embedding-004` |
 | Vector DB | ChromaDB |
 | PDF parsing | PyMuPDF (fitz) |
 | Text cleaning | `re` (regex) |
@@ -38,7 +38,7 @@ fin/
 │   │   ├── pdf_parser.py           #   Step 2 — PDF → text
 │   │   ├── preprocessor.py         #   Step 3 — clean text
 │   │   ├── chunker.py              #   Step 4 — split into chunks
-│   │   ├── embeddings.py           #   Step 5 — OpenAI embeddings
+│   │   ├── embeddings.py           #   Step 5 — Google embeddings
 │   │   └── vector_store.py         #   Step 6 — ChromaDB storage
 │   │
 │   ├── extraction/                 # Steps 7 & 9
@@ -103,7 +103,7 @@ fin/
 python -m venv venv
 venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-copy .env.example .env         # add your OPENAI_API_KEY
+copy .env.example .env         # add your GOOGLE_API_KEY
 streamlit run app/main.py
 ```
 

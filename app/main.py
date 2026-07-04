@@ -44,10 +44,10 @@ def render_sidebar() -> None:
 
         st.divider()
         st.subheader("Status")
-        if config.OPENAI_API_KEY:
-            st.success("API key loaded")
+        if config.validate_config():
+            st.success("Google API key loaded")
         else:
-            st.warning("Set OPENAI_API_KEY in .env")
+            st.warning("Set GOOGLE_API_KEY in .env")
 
 
 def main() -> None:
