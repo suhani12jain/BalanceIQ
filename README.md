@@ -1,4 +1,4 @@
-# FinSum: Financial Statement Analysis for Laymen
+# BalanceIQ: Financial Statement Analysis for Laymen
 
 A Retrieval-Augmented Generation (RAG) application that helps non-experts understand company annual reports. Upload a PDF, ask questions in plain English, and get simple explanations backed by the document — plus charts, news, and a financial glossary.
 

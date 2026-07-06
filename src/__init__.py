@@ -1,5 +1,5 @@
 """
-FinSum core package.
+BalanceIQ core package.
 
 Organized by pipeline stage:
   ingestion  → Steps 2–6  (parse, clean, chunk, embed, ChromaDB)

@@ -1,4 +1,4 @@
-# FinSum - Financial Statement Analysis for Laymen
+# BalanceIQ - Financial Statement Analysis for Laymen
 # Core dependencies
 
 # Web UI

@@ -1,5 +1,5 @@
 """
-Configuration loader for FinSum.
+Configuration loader for BalanceIQ.
 
 Reads API keys, model names, and data paths from a .env file.
 """

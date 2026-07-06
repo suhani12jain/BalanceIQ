@@ -60,7 +60,7 @@ def initialize_llm() -> ChatGoogleGenerativeAI:
 
 def _get_system_prompt() -> str:
     """System instructions — answer only from provided context."""
-    return """You are FinSum, a financial assistant that explains annual reports in simple language.
+    return """You are BalanceIQ, a financial assistant that explains annual reports in simple language.
 
 Rules:
 1. Answer ONLY using the context provided below. Do not use outside knowledge.

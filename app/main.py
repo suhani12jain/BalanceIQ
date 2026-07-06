@@ -1,5 +1,5 @@
 """
-FinSum — Streamlit frontend (Step 18).
+BalanceIQ — Streamlit frontend (Step 18).
 
 Entry point for the Financial Statement Analysis app.
 Run with: streamlit run app/main.py
@@ -18,7 +18,7 @@ from app.components import upload, chat, charts, news, learn  # noqa: E402
 
 
 st.set_page_config(
-    page_title="FinSum — Financial Statement Analysis",
+    page_title="BalanceIQ — Financial Statement Analysis",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -28,7 +28,7 @@ st.set_page_config(
 def render_sidebar() -> None:
     """Sidebar with app info and pipeline status."""
     with st.sidebar:
-        st.title("FinSum")
+        st.title("BalanceIQ")
         st.caption("Financial Statement Analysis for Laymen")
         st.divider()
 
@@ -54,7 +54,7 @@ def main() -> None:
     """Main app — Step 18 final output layout."""
     render_sidebar()
 
-    st.title("📊 FinSum")
+    st.title("📊 BalanceIQ")
     st.markdown("**Understand annual reports — no finance degree required.**")
 
     tab_upload, tab_chat, tab_charts, tab_news, tab_learn = st.tabs(
