@@ -1,32 +1,19 @@
 """
 RAG Chatbot — retrieve context + generate answer with Gemini 2.5 Flash.
 
-Single responsibility: user question → retrieved chunks → Gemini answer.
-
-    User question
-         │
-         ▼
-    retriever (top 4 chunks)
-         │
-         ▼
-    build prompt (context + question)
-         │
-         ▼
-    Gemini 2.5 Flash
-         │
-         ▼
-    Plain-language answer
-
-Does NOT: handle Streamlit UI or file uploads.
+Orchestration lives in small, focused functions:
+    initialize_llm()   → Gemini client
+    build_prompt()       → context + question string
+    generate_answer()    → retrieve → prompt → invoke → answer
 """
 
 from dataclasses import dataclass
 
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
 
-from src.config import GOOGLE_API_KEY, TOP_K_RETRIEVAL, validate_config
-from src.rag.llm import get_chat_model
+from src.config import GEMINI_CHAT_MODEL, GOOGLE_API_KEY, TOP_K_RETRIEVAL, validate_config
 from src.retrieval.retriever import (
     RetrievalError,
     format_retrieved_context,
@@ -40,28 +27,39 @@ class ChatbotError(Exception):
 
 @dataclass
 class ChatbotResponse:
-    """Full chatbot output — answer plus the chunks used to generate it."""
+    """Answer plus the source chunks used to produce it."""
 
     answer: str
     retrieved_chunks: list[Document]
 
 
-def _validate_api_key() -> None:
-    """Ensure GOOGLE_API_KEY is configured for Gemini."""
+def initialize_llm() -> ChatGoogleGenerativeAI:
+    """
+    Create and return the Gemini 2.5 Flash client.
+
+    Low temperature keeps answers factual and grounded in context.
+
+    Returns:
+        Configured ChatGoogleGenerativeAI instance.
+
+    Raises:
+        ChatbotError: If GOOGLE_API_KEY is missing.
+    """
     if not validate_config():
         raise ChatbotError(
             "GOOGLE_API_KEY is not set. Add it to your .env file "
             "(see .env.example)."
         )
 
+    return ChatGoogleGenerativeAI(
+        model=GEMINI_CHAT_MODEL,
+        google_api_key=GOOGLE_API_KEY,
+        temperature=0.2,
+    )
 
-def get_system_prompt() -> str:
-    """
-    System instructions for Gemini.
 
-    Tells the model to act as a layman-friendly financial analyst and
-  to stay grounded in the retrieved report context only.
-    """
+def _get_system_prompt() -> str:
+    """System instructions — answer only from provided context."""
     return """You are FinSum, a financial assistant that explains annual reports in simple language.
 
 Rules:
@@ -74,16 +72,14 @@ Rules:
 
 def build_prompt(context: str, question: str) -> str:
     """
-    Build the user message sent to Gemini.
-
-    Combines retrieved report excerpts with the user's question.
+    Construct the user prompt string from retrieved context and the question.
 
     Args:
-        context: Formatted text from retriever.format_retrieved_context().
+        context: Formatted report excerpts from the retriever.
         question: User's natural-language question.
 
     Returns:
-        Complete user prompt string.
+        Prompt string sent to Gemini as the human message.
     """
     return f"""Use the following excerpts from the annual report to answer the question.
 
@@ -96,31 +92,26 @@ Question: {question}
 Answer in simple language based only on the context above:"""
 
 
-def generate_answer(context: str, question: str) -> str:
+def _invoke_llm(llm: ChatGoogleGenerativeAI, context: str, question: str) -> str:
     """
-    Call Gemini 2.5 Flash with the built prompt and return the answer.
+    Send the system prompt + built user prompt to Gemini and return the reply.
 
     Args:
+        llm: Gemini client from initialize_llm().
         context: Retrieved report context.
         question: User's question.
 
     Returns:
-        Generated answer string.
+        Generated answer text.
 
     Raises:
-        ChatbotError: On API or model errors.
+        ChatbotError: On API or empty-response errors.
     """
-    _validate_api_key()
-
     try:
-        llm = get_chat_model()
-        messages = [
-            SystemMessage(content=get_system_prompt()),
+        response = llm.invoke([
+            SystemMessage(content=_get_system_prompt()),
             HumanMessage(content=build_prompt(context, question)),
-        ]
-        response = llm.invoke(messages)
-    except ChatbotError:
-        raise
+        ])
     except Exception as exc:
         raise ChatbotError(f"Gemini failed to generate an answer: {exc}") from exc
 
@@ -131,17 +122,19 @@ def generate_answer(context: str, question: str) -> str:
     return answer
 
 
-def ask(
+def generate_answer(
     question: str,
     collection_name: str,
     top_k: int = TOP_K_RETRIEVAL,
-) -> ChatbotResponse:
+) -> str:
     """
-    End-to-end RAG chatbot: retrieve → prompt → Gemini → answer.
+    Orchestrate the full RAG answer flow and return the final answer.
 
-    Main entry point:
-        result = ask("What was the company's revenue?", "demo_annual_report")
-        print(result.answer)
+    Steps:
+        1. Retrieve top-k relevant chunks from ChromaDB
+        2. Format chunks into a context string
+        3. Build the prompt (build_prompt)
+        4. Initialize Gemini (initialize_llm) and invoke
 
     Args:
         question: User's natural-language question.
@@ -149,39 +142,56 @@ def ask(
         top_k: Number of chunks to retrieve (default: 4).
 
     Returns:
-        ChatbotResponse with answer and the retrieved source chunks.
+        Plain-language answer string.
 
     Raises:
-        ChatbotError: On retrieval or generation errors.
+        ChatbotError: On validation, retrieval, or generation errors.
     """
     cleaned = (question or "").strip()
     if not cleaned:
         raise ChatbotError("Question cannot be empty.")
 
-    # Step 1 — retrieve top-k relevant chunks from ChromaDB
+    # Step 1 — semantic search over ChromaDB
     try:
         chunks = retrieve_documents(cleaned, collection_name, top_k=top_k)
     except RetrievalError as exc:
         raise ChatbotError(str(exc)) from exc
 
-    # Step 2 — format chunks into a single context block
+    # Step 2 — join retrieved chunks into one context block
     context = format_retrieved_context(chunks)
 
-    # Step 3 — send context + question to Gemini and get the answer
-    answer = generate_answer(context, cleaned)
+    # Step 3 & 4 — prompt + Gemini
+    llm = initialize_llm()
+    return _invoke_llm(llm, context, cleaned)
 
-    return ChatbotResponse(answer=answer, retrieved_chunks=chunks)
 
-
-def ask_simple(question: str, collection_name: str) -> str:
+def ask(
+    question: str,
+    collection_name: str,
+    top_k: int = TOP_K_RETRIEVAL,
+) -> ChatbotResponse:
     """
-    Convenience wrapper that returns only the answer string.
+    Like generate_answer(), but also returns the retrieved source chunks.
 
     Args:
         question: User's question.
         collection_name: ChromaDB collection name.
+        top_k: Number of chunks to retrieve.
 
     Returns:
-        Generated answer.
+        ChatbotResponse with answer and retrieved_chunks.
     """
-    return ask(question, collection_name).answer
+    cleaned = (question or "").strip()
+    if not cleaned:
+        raise ChatbotError("Question cannot be empty.")
+
+    try:
+        chunks = retrieve_documents(cleaned, collection_name, top_k=top_k)
+    except RetrievalError as exc:
+        raise ChatbotError(str(exc)) from exc
+
+    context = format_retrieved_context(chunks)
+    llm = initialize_llm()
+    answer = _invoke_llm(llm, context, cleaned)
+
+    return ChatbotResponse(answer=answer, retrieved_chunks=chunks)
