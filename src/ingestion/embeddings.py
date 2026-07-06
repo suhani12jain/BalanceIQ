@@ -52,6 +52,8 @@ def get_embedding_model() -> HuggingFaceEmbeddings:
     all-MiniLM-L6-v2 runs locally — no API key required.
     First call downloads the model (~80 MB); later calls reuse the cached instance.
 
+
+
     Returns:
         Configured HuggingFaceEmbeddings instance.
 
