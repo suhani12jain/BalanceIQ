@@ -1,12 +1,12 @@
 """
-Step 17 & 18 — Learn / Glossary UI.
+Step 11 & 18 — Learn / Glossary UI.
 
 Explains financial terms (EBITDA, Cash Flow, ROE, etc.) on demand.
 """
 
 import streamlit as st
 
-from src.glossary.terms import get_learn_topics, explain_term
+from src.glossary.terms import explain_term, get_learn_topics
 
 
 def render() -> None:
@@ -24,8 +24,4 @@ def render() -> None:
 
     if selected:
         explanation = explain_term(selected)
-        if explanation:
-            st.markdown(f"**{selected}** — {explanation}")
-        else:
-            # TODO: explain_term returns static lookup once implemented
-            st.info(f"Explanation for '{selected}' will appear here.")
+        st.markdown(f"**{selected}** — {explanation}")

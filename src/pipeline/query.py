@@ -1,15 +1,11 @@
 """
 Question → Answer Pipeline Orchestrator.
 
-Runs Steps 10–17 when a user asks a question:
-  10. Receive question
-  11. Embed question
-  12. Vector search → retrieve chunks
-  13. Build full context (chunks + news + ratios + board)
-  14–15. Build prompt → GPT answer
-  16. (Charts served separately from stored metrics)
-  17. Append glossary explanations if relevant
+RAG only — embed question, search ChromaDB, generate answer with Groq.
+Glossary is separate (Learn tab / src/glossary/terms.py).
 """
+
+from src.rag.chatbot import ChatbotError, ask
 
 
 def run_query_pipeline(
@@ -17,14 +13,25 @@ def run_query_pipeline(
     report_id: str,
 ) -> dict:
     """
-    Execute the full Q&A pipeline for one user question.
+    Execute the RAG Q&A pipeline for one user question.
 
     Args:
         question: User's natural-language question.
         report_id: Identifier for the loaded report / Chroma collection.
 
     Returns:
-        Dict with keys: answer, glossary_notes, retrieved_chunk_count.
+        Dict with keys: answer, retrieved_chunk_count.
     """
-    # TODO: Chain retrieval → context_builder → rag_chain → glossary
-    pass
+    cleaned = (question or "").strip()
+    if not cleaned:
+        raise ValueError("Question cannot be empty.")
+
+    try:
+        response = ask(cleaned, report_id)
+    except ChatbotError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    return {
+        "answer": response.answer,
+        "retrieved_chunk_count": len(response.retrieved_chunks),
+    }

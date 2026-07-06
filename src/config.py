@@ -14,11 +14,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-# --- Google Gemini settings ---
-GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
-
-# Chat model — answers user questions (RAG Step 15)
-GEMINI_CHAT_MODEL: str = os.getenv("GEMINI_CHAT_MODEL", "gemini-2.5-flash")
+# --- Groq settings (chat LLM) ---
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 # Embedding model — local HuggingFace model (RAG Step 5, no API key needed)
 EMBEDDING_MODEL_NAME: str = os.getenv(
@@ -39,13 +37,13 @@ TOP_K_RETRIEVAL: int = 4
 
 def validate_config() -> bool:
     """
-    Check that required configuration (Google API key) is present.
+    Check that required configuration (Groq API key) is present.
 
     Returns:
         True if configuration is valid, False otherwise.
     """
-    if not GOOGLE_API_KEY or not GOOGLE_API_KEY.strip():
+    if not GROQ_API_KEY or not GROQ_API_KEY.strip():
         return False
-    if GOOGLE_API_KEY.strip() == "your_google_api_key_here":
+    if GROQ_API_KEY.strip() == "your_groq_api_key_here":
         return False
     return True

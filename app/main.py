@@ -45,13 +45,23 @@ def render_sidebar() -> None:
         st.divider()
         st.subheader("Status")
         if config.validate_config():
-            st.success("Google API key loaded")
+            st.success("Groq API key loaded")
         else:
-            st.warning("Set GOOGLE_API_KEY in .env")
+            st.warning("Set GROQ_API_KEY in .env")
 
 
 def main() -> None:
     """Main app — Step 18 final output layout."""
+    for key, default in {
+        "indexed": False,
+        "report_id": None,
+        "metrics_df": None,
+        "last_answer": None,
+        "last_question": None,
+    }.items():
+        if key not in st.session_state:
+            st.session_state[key] = default
+
     render_sidebar()
 
     st.title("📊 BalanceIQ")

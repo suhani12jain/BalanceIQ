@@ -7,7 +7,7 @@ Usage:
 
 Pipeline:
     Load PDF → Parse → Preprocess → Chunk → Embed → ChromaDB
-    → Retrieve chunks → Gemini answer
+    → Retrieve chunks → Groq answer
 """
 
 import argparse
@@ -98,10 +98,10 @@ def run_pipeline(pdf_path: Path, question: str) -> None:
         print(preview + ("..." if len(doc.page_content) > 400 else ""))
 
     if not validate_config():
-        print("\n⚠ GOOGLE_API_KEY not set — skipping Gemini answer.")
+        print("\n⚠ GROQ_API_KEY not set — skipping LLM answer.")
         return
 
-    t = _step("7. Generate Gemini answer")
+    t = _step("7. Generate Groq answer")
     try:
         response = ask(question, collection_name, top_k=TOP_K_RETRIEVAL)
     except ChatbotError as exc:
@@ -110,7 +110,7 @@ def run_pipeline(pdf_path: Path, question: str) -> None:
     _done(t)
 
     print(f"\n{'─' * 60}")
-    print("  GEMINI ANSWER")
+    print("  GROQ ANSWER")
     print("─" * 60)
     print(f"\nQ: {question}\n")
     print(response.answer)

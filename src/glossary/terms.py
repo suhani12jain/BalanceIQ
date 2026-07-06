@@ -1,54 +1,58 @@
 """
-Step 17 — Financial Literacy Layer.
+Step 11 — Financial Literacy Layer (Learn tab only).
 
-Explains financial terms in plain language when users ask
-(e.g. "What is EBITDA?").
+Static glossary — not connected to the RAG Q&A pipeline.
+Use the Learn tab in the app to browse term definitions.
 """
 
-# Static definitions for quick lookup without an API call
 FINANCIAL_TERMS: dict[str, str] = {
     "EBITDA": (
-        "EBITDA measures how much money the company earns from its core business "
-        "before accounting and financing costs. It helps compare operating performance."
+        "EBITDA (Earnings Before Interest, Taxes, Depreciation, and Amortization) "
+        "measures how much money a company earns from its core business operations "
+        "before accounting for interest, taxes, and non-cash charges like depreciation. "
+        "Think of it as: \"How much cash-like profit did the business generate?\" "
+        "It helps compare operating performance across companies without the noise "
+        "of financing decisions or tax rules."
     ),
     "EPS": (
-        "Earnings Per Share — net profit divided by outstanding shares. "
-        "Shows how much profit each share earned."
+        "Earnings Per Share (EPS) is the company's net profit divided by the number "
+        "of outstanding shares. If a company earned ₹100 crore and has 10 crore shares, "
+        "EPS is ₹10 per share. It shows how much profit each share earned — useful "
+        "when comparing companies of different sizes."
     ),
     "ROE": (
-        "Return on Equity — net income as a percentage of shareholders' equity. "
-        "Shows how efficiently the company uses investor money."
+        "Return on Equity (ROE) shows how efficiently a company uses shareholders' money. "
+        "It is net profit divided by shareholders' equity, expressed as a percentage. "
+        "A higher ROE generally means the company is generating more profit from "
+        "each rupee of investor capital."
     ),
     "Revenue": (
-        "Total money earned from selling goods or services before expenses. "
-        "Also called turnover or sales."
+        "Revenue is the total money a company earns from selling its goods or services "
+        "before subtracting any costs. It is also called sales or turnover. "
+        "Revenue growth tells you whether the business is getting bigger."
     ),
     "Profit": (
-        "Money left after subtracting all costs from revenue. "
-        "Also called net income or earnings."
+        "Profit (or net income) is what remains after subtracting all expenses — "
+        "including salaries, raw materials, taxes, and interest — from revenue. "
+        "A company can have high revenue but low profit if costs are too high."
     ),
     "Debt": (
-        "Money borrowed by the company that must be repaid with interest."
+        "Debt is money the company has borrowed and must repay, usually with interest. "
+        "Some debt is normal for growth, but too much debt can be risky if profits fall "
+        "and the company struggles to make repayments."
+    ),
+    "Assets": (
+        "Assets are everything the company owns that has value — cash, buildings, "
+        "equipment, inventory, and investments. Assets are listed on the balance sheet "
+        "and are used to generate revenue."
     ),
     "Cash Flow": (
-        "Actual cash moving in and out of the business. "
-        "A company can be profitable but still run out of cash."
+        "Cash flow is the actual movement of money in and out of a business. "
+        "A company can show a profit on paper but still run out of cash if customers "
+        "pay late or if it spends heavily on equipment. Positive cash flow means "
+        "more money is coming in than going out."
     ),
 }
-
-
-def detect_financial_terms(query: str) -> list[str]:
-    """
-    Identify financial terms mentioned in the user's question.
-
-    Args:
-        query: User question text.
-
-    Returns:
-        List of detected term keys (e.g. ["EBITDA", "ROE"]).
-    """
-    # TODO: Case-insensitive match against FINANCIAL_TERMS keys and aliases
-    pass
 
 
 def explain_term(term: str) -> str:
@@ -61,29 +65,23 @@ def explain_term(term: str) -> str:
     Returns:
         Explanation string, or a not-found message.
     """
-    # TODO: Lookup in FINANCIAL_TERMS (case-insensitive)
-    pass
+    if not term or not term.strip():
+        return ""
 
+    normalized = term.strip()
+    if normalized in FINANCIAL_TERMS:
+        return FINANCIAL_TERMS[normalized]
 
-def explain_terms_in_query(query: str) -> str:
-    """
-    If the query asks about terminology, return combined explanations.
+    for key, definition in FINANCIAL_TERMS.items():
+        if key.lower() == normalized.lower():
+            return definition
 
-    Args:
-        query: User's natural-language question.
-
-    Returns:
-        Formatted glossary text, or empty string if no terms detected.
-    """
-    # TODO: detect_financial_terms + explain_term for each
-    pass
+    return (
+        f"I don't have a definition for '{term}' yet. "
+        "Try EBITDA, EPS, ROE, Revenue, or Profit."
+    )
 
 
 def get_learn_topics() -> list[str]:
-    """
-    Return list of terms for the "Learn" sidebar (Step 18 UI).
-
-    Returns:
-        Sorted list of available glossary terms.
-    """
+    """Return sorted list of glossary terms for the Learn tab."""
     return sorted(FINANCIAL_TERMS.keys())

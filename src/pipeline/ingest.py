@@ -1,17 +1,19 @@
 """
 Upload → Ingest Pipeline Orchestrator.
 
-Runs Steps 2–6 when a user uploads a PDF:
+Runs Steps 2–6 and Step 9 when a user uploads a PDF:
   2. Parse PDF → text
   3. Clean text
   4. Chunk text
   5. Generate embeddings
   6. Store in ChromaDB
+  9. Extract financial metrics → pandas CSV
 """
 
 from pathlib import Path
 
 from src.config import UPLOADS_DIR
+from src.extraction.financial_extractor import extract_financial_metrics, save_metrics_to_disk
 from src.ingestion.chunker import chunk_report
 from src.ingestion.embeddings import embed_documents, get_embedding_model
 from src.ingestion.pdf_parser import extract_text_by_page
@@ -105,6 +107,10 @@ def run_ingestion_pipeline(pdf_path: Path) -> dict:
         vector_store = create_vector_store(embedded_docs, collection_name)
         save_vector_store(vector_store, collection_name)
 
+        # Step 9 — extract financial metrics (regex) → pandas CSV
+        metrics_df = extract_financial_metrics(cleaned_text)
+        save_metrics_to_disk(metrics_df, collection_name)
+
     except IngestionError:
         raise
     except Exception as exc:
@@ -115,4 +121,5 @@ def run_ingestion_pipeline(pdf_path: Path) -> dict:
         "filename": filename,
         "page_count": page_count,
         "chunk_count": len(chunks),
+        "metrics_df": metrics_df,
     }

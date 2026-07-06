@@ -1,19 +1,19 @@
 """
-RAG Chatbot — retrieve context + generate answer with Gemini 2.5 Flash.
+RAG Chatbot — retrieve context + generate answer with Groq.
 
-Orchestration lives in small, focused functions:
-    initialize_llm()   → Gemini client
-    build_prompt()       → context + question string
-    generate_answer()    → retrieve → prompt → invoke → answer
+This module is RAG only. Glossary / Learn is a separate feature (Learn tab).
+
+Flow:
+    question → embed → ChromaDB search → top-k chunks → Groq → answer
 """
 
 from dataclasses import dataclass
 
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 
-from src.config import GEMINI_CHAT_MODEL, GOOGLE_API_KEY, TOP_K_RETRIEVAL, validate_config
+from src.config import GROQ_API_KEY, GROQ_MODEL, TOP_K_RETRIEVAL, validate_config
 from src.retrieval.retriever import (
     RetrievalError,
     format_retrieved_context,
@@ -33,28 +33,28 @@ class ChatbotResponse:
     retrieved_chunks: list[Document]
 
 
-def initialize_llm() -> ChatGoogleGenerativeAI:
+def initialize_llm() -> ChatGroq:
     """
-    Create and return the Gemini 2.5 Flash client.
+    Create and return the Groq chat client.
 
     Low temperature keeps answers factual and grounded in context.
 
     Returns:
-        Configured ChatGoogleGenerativeAI instance.
+        Configured ChatGroq instance.
 
     Raises:
-        ChatbotError: If GOOGLE_API_KEY is missing.
+        ChatbotError: If GROQ_API_KEY is missing.
     """
     if not validate_config():
         raise ChatbotError(
-            "GOOGLE_API_KEY is not set. Add it to your .env file "
+            "GROQ_API_KEY is not set. Add it to your .env file "
             "(see .env.example)."
         )
 
-    return ChatGoogleGenerativeAI(
-        model=GEMINI_CHAT_MODEL,
-        google_api_key=GOOGLE_API_KEY,
+    return ChatGroq(
+        model=GROQ_MODEL,
         temperature=0.2,
+        api_key=GROQ_API_KEY,
     )
 
 
@@ -79,7 +79,7 @@ def build_prompt(context: str, question: str) -> str:
         question: User's natural-language question.
 
     Returns:
-        Prompt string sent to Gemini as the human message.
+        Prompt string sent to the LLM as the human message.
     """
     return f"""Use the following excerpts from the annual report to answer the question.
 
@@ -92,12 +92,12 @@ Question: {question}
 Answer in simple language based only on the context above:"""
 
 
-def _invoke_llm(llm: ChatGoogleGenerativeAI, context: str, question: str) -> str:
+def _invoke_llm(llm: ChatGroq, context: str, question: str) -> str:
     """
-    Send the system prompt + built user prompt to Gemini and return the reply.
+    Send the system prompt + built user prompt to Groq and return the reply.
 
     Args:
-        llm: Gemini client from initialize_llm().
+        llm: Groq client from initialize_llm().
         context: Retrieved report context.
         question: User's question.
 
@@ -113,11 +113,11 @@ def _invoke_llm(llm: ChatGoogleGenerativeAI, context: str, question: str) -> str
             HumanMessage(content=build_prompt(context, question)),
         ])
     except Exception as exc:
-        raise ChatbotError(f"Gemini failed to generate an answer: {exc}") from exc
+        raise ChatbotError(f"Groq failed to generate an answer: {exc}") from exc
 
     answer = (response.content or "").strip()
     if not answer:
-        raise ChatbotError("Gemini returned an empty response.")
+        raise ChatbotError("Groq returned an empty response.")
 
     return answer
 
@@ -134,7 +134,7 @@ def generate_answer(
         1. Retrieve top-k relevant chunks from ChromaDB
         2. Format chunks into a context string
         3. Build the prompt (build_prompt)
-        4. Initialize Gemini (initialize_llm) and invoke
+        4. Initialize Groq (initialize_llm) and invoke
 
     Args:
         question: User's natural-language question.
@@ -147,22 +147,8 @@ def generate_answer(
     Raises:
         ChatbotError: On validation, retrieval, or generation errors.
     """
-    cleaned = (question or "").strip()
-    if not cleaned:
-        raise ChatbotError("Question cannot be empty.")
-
-    # Step 1 — semantic search over ChromaDB
-    try:
-        chunks = retrieve_documents(cleaned, collection_name, top_k=top_k)
-    except RetrievalError as exc:
-        raise ChatbotError(str(exc)) from exc
-
-    # Step 2 — join retrieved chunks into one context block
-    context = format_retrieved_context(chunks)
-
-    # Step 3 & 4 — prompt + Gemini
-    llm = initialize_llm()
-    return _invoke_llm(llm, context, cleaned)
+    response = ask(question, collection_name, top_k=top_k)
+    return response.answer
 
 
 def ask(
@@ -171,7 +157,7 @@ def ask(
     top_k: int = TOP_K_RETRIEVAL,
 ) -> ChatbotResponse:
     """
-    Like generate_answer(), but also returns the retrieved source chunks.
+    RAG pipeline: retrieve relevant PDF chunks, then ask Groq.
 
     Args:
         question: User's question.
