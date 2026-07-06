@@ -1,84 +1,92 @@
 """
-Step 5 — Embedding Generation (Google text-embedding-004).
+Step 5 — Embedding Generation (sentence-transformers/all-MiniLM-L6-v2).
 
-Single responsibility: text / Document chunks → numerical vectors.
+Single responsibility: Document chunks → numerical vectors.
 
     [Document, Document, ...]
               │
               ▼
-         Embeddings (Google API)
+    HuggingFace Embeddings (local model, no API key)
               │
               ▼
-    [[0.45, 0.91, ...], [0.12, 0.33, ...], ...]
+    [EmbeddedDocument, EmbeddedDocument, ...]
 
-Chat answers use gemini-2.5-flash (rag_chain.py).
-Embeddings use a separate Google embedding model — not the chat model.
+Each vector captures the *meaning* of a chunk.
+ChromaDB storage is handled in vector_store.py (Step 6).
 """
 
+from dataclasses import dataclass
+
 from langchain_core.documents import Document
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 
-from src.config import GEMINI_EMBEDDING_MODEL, GOOGLE_API_KEY
+from src.config import EMBEDDING_MODEL_NAME
 
-# models/text-embedding-004 outputs 768-dimensional vectors
-EMBEDDING_DIMENSION: int = 768
+# all-MiniLM-L6-v2 outputs 384-dimensional vectors
+EMBEDDING_DIMENSION: int = 384
+
+# Reuse one model instance — loading the model is slow; embedding is fast
+_embedding_model: HuggingFaceEmbeddings | None = None
 
 
 class EmbeddingError(Exception):
     """Raised when embedding generation fails."""
 
 
-def _validate_api_key() -> None:
+@dataclass
+class EmbeddedDocument:
     """
-    Ensure GOOGLE_API_KEY is set before calling the Google Gemini API.
+    A document chunk paired with its embedding vector.
 
-    Raises:
-        EmbeddingError: If the key is missing or still a placeholder.
+    Used as the output format for the next module (ChromaDB storage).
     """
-    if not GOOGLE_API_KEY or not GOOGLE_API_KEY.strip():
-        raise EmbeddingError(
-            "GOOGLE_API_KEY is not set. Add it to your .env file "
-            "(see .env.example)."
-        )
 
-    if GOOGLE_API_KEY.strip() == "your_google_api_key_here":
-        raise EmbeddingError(
-            "GOOGLE_API_KEY is still the placeholder value. "
-            "Get a key at https://aistudio.google.com/apikey"
-        )
+    document: Document
+    embedding: list[float]
 
 
-def get_embedding_model() -> GoogleGenerativeAIEmbeddings:
+def get_embedding_model() -> HuggingFaceEmbeddings:
     """
-    Initialize and return the Google embedding model via LangChain.
+    Initialize and return the HuggingFace embedding model (singleton).
 
-    Uses models/text-embedding-004 by default (optimized for semantic search).
-    LangChain wraps the Google API so we can call embed_documents / embed_query
-    without writing raw HTTP requests.
+    all-MiniLM-L6-v2 runs locally — no API key required.
+    First call downloads the model (~80 MB); later calls reuse the cached instance.
 
     Returns:
-        Configured GoogleGenerativeAIEmbeddings instance.
+        Configured HuggingFaceEmbeddings instance.
 
     Raises:
-        EmbeddingError: If the API key is missing or invalid.
+        EmbeddingError: If the model fails to load.
     """
-    _validate_api_key()
+    global _embedding_model
 
-    return GoogleGenerativeAIEmbeddings(
-        model=GEMINI_EMBEDDING_MODEL,
-        google_api_key=GOOGLE_API_KEY,
-    )
+    if _embedding_model is not None:
+        return _embedding_model
+
+    try:
+        # LangChain wrapper around sentence-transformers
+        _embedding_model = HuggingFaceEmbeddings(
+            model_name=EMBEDDING_MODEL_NAME,
+        )
+    except Exception as exc:
+        raise EmbeddingError(
+            f"Failed to load embedding model '{EMBEDDING_MODEL_NAME}': {exc}"
+        ) from exc
+
+    return _embedding_model
 
 
 def extract_texts_from_documents(chunks: list[Document]) -> list[str]:
     """
     Pull page_content strings out of LangChain Document objects.
 
+    The embedding model only accepts plain text — not Document objects directly.
+
     Args:
         chunks: Document list from chunker.py.
 
     Returns:
-        List of text strings, one per document (same order as input).
+        List of text strings in the same order as the input chunks.
 
     Raises:
         EmbeddingError: If chunks is empty or any chunk has no text.
@@ -100,20 +108,20 @@ def extract_texts_from_documents(chunks: list[Document]) -> list[str]:
 
 def embed_texts(
     texts: list[str],
-    embedding_model: GoogleGenerativeAIEmbeddings | None = None,
+    embedding_model: HuggingFaceEmbeddings | None = None,
 ) -> list[list[float]]:
     """
     Generate embedding vectors for a batch of text strings.
 
     Args:
-        texts: List of strings to embed (e.g. chunk texts).
+        texts: List of strings to embed.
         embedding_model: Optional pre-initialized model; created if omitted.
 
     Returns:
-        List of embedding vectors — one float list per input string.
+        List of embedding vectors — one per input string (384 floats each).
 
     Raises:
-        EmbeddingError: On validation failure or Google API errors.
+        EmbeddingError: On validation or model errors.
     """
     if not texts:
         raise EmbeddingError("Cannot embed an empty list of texts.")
@@ -125,9 +133,10 @@ def embed_texts(
     model = embedding_model or get_embedding_model()
 
     try:
+        # embed_documents encodes all texts in one batch (efficient on CPU/GPU)
         vectors = model.embed_documents(cleaned)
     except Exception as exc:
-        raise _wrap_api_error(exc, context="document embedding") from exc
+        raise EmbeddingError(f"Failed to generate embeddings: {exc}") from exc
 
     if len(vectors) != len(cleaned):
         raise EmbeddingError(
@@ -139,45 +148,57 @@ def embed_texts(
 
 def embed_documents(
     chunks: list[Document],
-    embedding_model: GoogleGenerativeAIEmbeddings | None = None,
-) -> list[list[float]]:
+    embedding_model: HuggingFaceEmbeddings | None = None,
+) -> list[EmbeddedDocument]:
     """
-    Generate embeddings for a list of LangChain Document chunks.
+    Generate embeddings for every document chunk.
 
     Main entry point after chunking:
         chunks = chunker.chunk_report(clean_text, filename)
-        vectors = embed_documents(chunks)
+        embedded = embed_documents(chunks)
 
     Args:
         chunks: Document objects from chunker.py.
         embedding_model: Optional pre-initialized model.
 
     Returns:
-        Embedding vectors aligned with input order (vectors[i] ↔ chunks[i]).
+        List of EmbeddedDocument — each pairs the original Document with its vector.
+        Order is preserved: embedded[i] corresponds to chunks[i].
 
     Raises:
-        EmbeddingError: On validation failure or Google API errors.
+        EmbeddingError: On validation or model errors.
     """
+    # Step 1 — extract plain text from each Document
     texts = extract_texts_from_documents(chunks)
-    return embed_texts(texts, embedding_model=embedding_model)
+
+    # Step 2 — convert texts to vectors using the local HuggingFace model
+    vectors = embed_texts(texts, embedding_model=embedding_model)
+
+    # Step 3 — pair each Document with its embedding for the next module
+    return [
+        EmbeddedDocument(document=chunk, embedding=vector)
+        for chunk, vector in zip(chunks, vectors)
+    ]
 
 
 def embed_query(
     query: str,
-    embedding_model: GoogleGenerativeAIEmbeddings | None = None,
+    embedding_model: HuggingFaceEmbeddings | None = None,
 ) -> list[float]:
     """
-    Generate a single embedding vector for a user question (Step 11).
+    Generate a single embedding vector for a user question (used in Step 11).
+
+    Uses embed_query (not embed_documents) because a search query is one short string.
 
     Args:
-        query: Natural-language question.
+        query: Natural-language question (e.g. "What was the company's debt?").
         embedding_model: Optional pre-initialized model.
 
     Returns:
-        One embedding vector (list of floats).
+        One embedding vector (384 floats).
 
     Raises:
-        EmbeddingError: On validation failure or Google API errors.
+        EmbeddingError: On validation or model errors.
     """
     cleaned = (query or "").strip()
     if not cleaned:
@@ -188,32 +209,9 @@ def embed_query(
     try:
         vector = model.embed_query(cleaned)
     except Exception as exc:
-        raise _wrap_api_error(exc, context="query embedding") from exc
+        raise EmbeddingError(f"Failed to embed query: {exc}") from exc
 
     if not vector:
-        raise EmbeddingError("Google API returned an empty embedding vector.")
+        raise EmbeddingError("Embedding model returned an empty vector.")
 
     return vector
-
-
-def _wrap_api_error(exc: Exception, context: str) -> EmbeddingError:
-    """Convert Google API exceptions into clear EmbeddingError messages."""
-    message = str(exc).lower()
-
-    if "api key" in message or "api_key" in message or "permission" in message:
-        return EmbeddingError(
-            f"Google API authentication failed during {context}. "
-            "Check your GOOGLE_API_KEY."
-        )
-    if "quota" in message or "rate" in message or "429" in message:
-        return EmbeddingError(
-            f"Google API rate limit exceeded during {context}. "
-            "Wait and retry."
-        )
-    if "connect" in message or "network" in message or "timeout" in message:
-        return EmbeddingError(
-            f"Could not connect to Google API during {context}. "
-            "Check your internet connection."
-        )
-
-    return EmbeddingError(f"Error during {context}: {exc}")

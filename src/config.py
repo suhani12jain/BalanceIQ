@@ -20,10 +20,9 @@ GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
 # Chat model — answers user questions (RAG Step 15)
 GEMINI_CHAT_MODEL: str = os.getenv("GEMINI_CHAT_MODEL", "gemini-2.5-flash")
 
-# Embedding model — converts chunks to vectors (RAG Step 5)
-# gemini-2.5-flash is NOT used for embeddings; this is a dedicated embedding model
-GEMINI_EMBEDDING_MODEL: str = os.getenv(
-    "GEMINI_EMBEDDING_MODEL", "models/text-embedding-004"
+# Embedding model — local HuggingFace model (RAG Step 5, no API key needed)
+EMBEDDING_MODEL_NAME: str = os.getenv(
+    "EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"
 )
 
 # --- Data paths ---
