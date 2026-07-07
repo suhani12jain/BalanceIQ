@@ -1,4 +1,4 @@
-# BalanceIQ: Financial Statement Analysis for Laymen
+# BalanceIQ: Simplifying Financial Statement Analysis with AI
 
 A Retrieval-Augmented Generation (RAG) application that helps non-experts understand company annual reports. Upload a PDF, ask questions in plain English, and get simple explanations backed by the document — plus extracted metrics, charts, and a separate financial glossary.
 
