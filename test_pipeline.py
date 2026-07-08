@@ -45,6 +45,7 @@ def _step(label: str) -> float:
 
 def _done(start: float, detail: str = "") -> None:
     """Print elapsed time for a step."""
+    
     elapsed = time.perf_counter() - start
     suffix = f" — {detail}" if detail else ""
     print(f"  ✓ Done in {elapsed:.1f}s{suffix}")
@@ -52,6 +53,7 @@ def _done(start: float, detail: str = "") -> None:
 
 def run_pipeline(pdf_path: Path, question: str) -> None:
     """Execute the full ingest + query pipeline and print results."""
+
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
@@ -90,7 +92,9 @@ def run_pipeline(pdf_path: Path, question: str) -> None:
 
     print(f"\n{'─' * 60}")
     print("  RETRIEVED CHUNKS")
+
     print("─" * 60)
+
     for i, doc in enumerate(retrieved, 1):
         idx = doc.metadata.get("chunk_index", "?")
         print(f"\n[Chunk {i} | index {idx}]")
@@ -120,17 +124,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run the BalanceIQ RAG pipeline without Streamlit."
     )
+
     parser.add_argument(
         "pdf",
         nargs="?",
         default="data/uploads/infosys-ar-25.pdf",
         help="Path to the annual report PDF (default: data/uploads/infosys-ar-25.pdf)",
     )
+
     parser.add_argument(
         "-q", "--question",
         default=DEFAULT_QUESTION,
         help=f"Sample question to ask (default: '{DEFAULT_QUESTION}')",
     )
+
     args = parser.parse_args()
 
     pdf_path = Path(args.pdf)
